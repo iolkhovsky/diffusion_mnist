@@ -34,8 +34,8 @@ class ContextUnet(nn.Module):
         context_mask: torch.LongTensor
     ) -> torch.Tensor:
         assert x.shape[0] == c.shape[0], f'Context (target class) tensor shape mismatch {c.shape}'
-        assert t.shape[0] == t.shape[0], f'Timestamp tensor shape mismatch {t.shape}'
-        assert len(context_mask.shape) == 0, f'Incorrectn ask shape {context_mask.shape}'
+        assert x.shape[0] == t.shape[0], f'Timestamp tensor shape mismatch {t.shape}'
+        assert x.shape[0] == context_mask.shape[0], f'Incorrectn ask shape {context_mask.shape}'
 
         x = self.conv(x)
 
@@ -45,7 +45,7 @@ class ContextUnet(nn.Module):
         hidden = nn.Sequential(nn.AvgPool2d(7), nn.GELU())(down2)
 
         c = nn.functional.one_hot(c, num_classes=self.n_classes).type(torch.float)
-        context_mask = torch.unsqueeze(context_mask, 0)[:, None]
+        context_mask = context_mask[:, None]
         context_mask = context_mask.repeat(1, self.n_classes)
         context_mask = (-1*(1-context_mask)) 
         c = c * context_mask
