@@ -1,4 +1,5 @@
 import lightning as pl
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,6 +8,7 @@ from tqdm import tqdm
 
 from ddpm.unet import ContextUnet
 from ddpm.schedule import Schedule
+from utils import images_to_grid, save_gif
 
 
 class DdpmPreprocessor(nn.Module):
@@ -87,7 +89,9 @@ class DDPM(pl.LightningModule):
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=1e-4)
 
-    def forward(self, contexts: torch.LongTensor, guide_w: torch.Tensor) -> torch.Tensor:
+    def forward(self, contexts: torch.LongTensor,
+                guide_w: torch.Tensor,
+                return_history: bool = False) -> torch.Tensor:
         assert len(contexts.shape) == 1
         batch_size = contexts.shape[0]
 
@@ -100,6 +104,10 @@ class DDPM(pl.LightningModule):
             ]
         ).to(self.device)
         contexts = contexts.repeat(2)
+
+        history = []
+        if return_history:
+            history.append(self.postprocessor(images).detach().cpu().numpy())
 
         with tqdm(total=self.schedule.steps) as pbar:
             for timestamp_idx in range(self.schedule.steps - 1, 0, -1):
@@ -123,9 +131,19 @@ class DDPM(pl.LightningModule):
                 images = img_k * (
                     images - noise * self.schedule.mab_over_sqrtmab[timestamp_idx]
                 ) + noise_k * z
+
+                if return_history:
+                    if timestamp_idx % 20 == 0 or timestamp_idx < 8:
+                        history.append(self.postprocessor(images).detach().cpu().numpy())
+
                 pbar.update(1)
 
-        return self.postprocessor(images)
+        out_images = self.postprocessor(images)
+
+        if return_history:
+            return out_images, history
+        else:
+            return out_images
 
     def validation_step(self, batch, batch_idx: int) -> None:
         writer = self.logger.experiment
@@ -134,6 +152,11 @@ class DDPM(pl.LightningModule):
             contexts = torch.tensor(
                 list(range(10)) * 4
             ).long().to(self.device)
-            images = self.forward(contexts, guide_w)
+            images, history = self.forward(contexts, guide_w, True)
             genereted_samples = make_grid(images, nrow=10)
             writer.add_image(f'Samples(w={guide_w})', genereted_samples, self.global_step)
+            history = [
+                images_to_grid(np.transpose(x, axes=(0, 2, 3, 1)))
+                for x in history
+            ]  # b, c, h, w -> b, h, w, c
+            save_gif(history, f'validation_guide_{guide_w}_step_{self.global_step}.gif')
