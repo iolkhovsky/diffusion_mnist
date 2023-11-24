@@ -31,35 +31,32 @@ class ContextUnet(nn.Module):
 
     def forward(
         self, x: torch.Tensor, c: torch.LongTensor, t: torch.LongTensor,
-        context_mask: torch.LongTensor
+        mask: torch.LongTensor
     ) -> torch.Tensor:
-        assert x.shape[0] == c.shape[0], f'Context (target class) tensor shape mismatch {c.shape}'
-        assert x.shape[0] == t.shape[0], f'Timestamp tensor shape mismatch {t.shape}'
-        assert x.shape[0] == context_mask.shape[0], f'Incorrectn ask shape {context_mask.shape}'
+        assert len(x.shape) == 4, f'x.shape = {x.shape}'
+        batch_size = x.shape[0]
+        assert len(c.shape) == 1 and c.shape[0] == batch_size, f'c.shape = {c.shape}'
+        assert len(t.shape) == 1 and t.shape[0] == batch_size, f't.shape = {t.shape}'
+        assert len(mask.shape) == 1 and mask.shape[0] == batch_size, f'mask.shape = {mask.shape}'
 
-        x = self.conv(x)
-
-        down1 = self.enc1(x)
+        in_map = self.conv(x)
+        down1 = self.enc1(in_map)
         down2 = self.enc2(down1)
 
         hidden = nn.Sequential(nn.AvgPool2d(7), nn.GELU())(down2)
-
-        c = nn.functional.one_hot(c, num_classes=self.n_classes).type(torch.float)
-        context_mask = context_mask[:, None]
-        context_mask = context_mask.repeat(1, self.n_classes)
-        context_mask = (-1*(1-context_mask)) 
-        c = c * context_mask
-
-        t = torch.unsqueeze(t, 1)
-        cemb1 = self.cls_emb1(c.float()).view(-1, self.dims * 2, 1, 1)
-        temb1 = self.time_emb1(t.float()).view(-1, self.dims * 2, 1, 1)
-        cemb2 = self.cls_emb2(c.float()).view(-1, self.dims, 1, 1)
-        temb2 = self.time_emb2(t.float()).view(-1, self.dims, 1, 1)
-
         up1 = self.bridge(hidden)
 
-        up2 = self.dec1(cemb1*up1+ temb1, down2)
-        up3 = self.dec2(cemb2*up2+ temb2, down1)
+        c_one_hot = nn.functional.one_hot(c, num_classes=self.n_classes).type(torch.float)
+        mask = mask[:, None].repeat(1, self.n_classes)
+        c_one_hot = c_one_hot * (1 - mask)
 
-        out = self.output(torch.cat((up3, x), 1))
+        t = torch.unsqueeze(t, 1)
+        cemb1 = self.cls_emb1(c_one_hot.float()).view(-1, self.dims * 2, 1, 1)
+        temb1 = self.time_emb1(t.float()).view(-1, self.dims * 2, 1, 1)
+        cemb2 = self.cls_emb2(c_one_hot.float()).view(-1, self.dims, 1, 1)
+        temb2 = self.time_emb2(t.float()).view(-1, self.dims, 1, 1)
+
+        up2 = self.dec1(cemb1 * up1 + temb1, down2)
+        up3 = self.dec2(cemb2 * up2 + temb2, down1)
+        out = self.output(torch.cat((up3, in_map), 1))
         return out

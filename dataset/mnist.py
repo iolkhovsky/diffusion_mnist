@@ -6,18 +6,18 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 
-class CustomImageDataset(Dataset):
-    def __init__(self, classes=10, samples_per_class=8):
-        self.classes = classes
-        self.samples = samples_per_class
-
+class DatsetPlug(Dataset):
     def __len__(self):
         return 1
 
     def __getitem__(self, idx):
-        return torch.tensor(
-            [[c for i in range(self.samples)] for c in range(self.classes)]
-        ).long()
+        return torch.tensor(idx)
+
+
+class ToTensorNoScaling(transforms.ToTensor):
+    def __call__(self, x):
+        tensor = super().__call__(x)
+        return tensor * 255.0
 
 
 class MNISTDataModule(pl.LightningDataModule):
@@ -28,7 +28,7 @@ class MNISTDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
 
         self.transform = transforms.Compose([
-            transforms.ToTensor(),
+            ToTensorNoScaling(),
         ])
         self.dataset = None
 
@@ -39,4 +39,4 @@ class MNISTDataModule(pl.LightningDataModule):
         return DataLoader(self.dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(CustomImageDataset(classes=10, samples_per_class=8))
+        return DataLoader(DatsetPlug())

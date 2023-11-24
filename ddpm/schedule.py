@@ -1,6 +1,7 @@
 from dataclasses import dataclass, fields
 import torch
 
+
 @dataclass
 class Schedule:
     beta1: float
@@ -16,7 +17,7 @@ class Schedule:
 
     @classmethod
     def from_betas(cls, beta1, beta2, steps):
-        assert beta1 < beta2 < 1.0, "beta1 and beta2 must be in (0, 1)"
+        assert beta1 < beta2 < 1.0, 'beta1 and beta2 must be in (0, 1)'
 
         beta_t = (beta2 - beta1) * torch.arange(0, steps + 1, dtype=torch.float32) / steps + beta1
         sqrt_beta_t = torch.sqrt(beta_t)
