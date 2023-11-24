@@ -28,7 +28,7 @@ class ConvolutionBlock(nn.Module):
             nn.GELU(),
         )
 
-    def forward(self, x: torch.Tensor, return_hidden=False) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, return_hidden: bool = False) -> torch.Tensor:
         hidden = self.block1(x)
         output = self.block2(hidden)
         if return_hidden:
@@ -42,11 +42,11 @@ class ResidualBlock(nn.Module):
         super().__init__()
         self.conv = ConvolutionBlock(in_channels, out_channels)
         self.same_depth = in_channels == out_channels
-        self.norm = torch.sqrt(torch.tensor(2.))
+        self.norm_k = torch.sqrt(torch.tensor(2.))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         output, hidden = self.conv(x, True)
         if self.same_depth:
             return output + x
         else:
-            return (output + hidden) / self.norm
+            return (output + hidden) / self.norm_k
