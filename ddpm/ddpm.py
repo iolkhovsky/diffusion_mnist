@@ -33,7 +33,8 @@ class DdpmPostprocessor(nn.Module):
 
 class DDPM(pl.LightningModule):
     def __init__(self, in_channels=1, hidden_channels=128, n_classes=10,
-                 beta1=1e-4, beta2=2e-2, steps=400, drop_prob=0.1, scale=1./255.):
+                 beta1=1e-4, beta2=2e-2, steps=400, drop_prob=0.1, scale=1./255.,
+                 lr=1e-4):
         super().__init__()
         self.core = ContextUnet(
             in_channels=in_channels,
@@ -41,6 +42,7 @@ class DDPM(pl.LightningModule):
             n_classes=n_classes,
         )
         self.scale = scale
+        self.lr = lr
         self.preprocessor = DdpmPreprocessor(self.scale, in_channels)
         self.postprocessor = DdpmPostprocessor(self.scale)
         self.schedule = Schedule.from_betas(
@@ -87,7 +89,7 @@ class DDPM(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=1e-4)
+        return optim.Adam(self.parameters(), lr=self.lr)
 
     def forward(self, contexts: torch.LongTensor,
                 guide_w: torch.Tensor,
