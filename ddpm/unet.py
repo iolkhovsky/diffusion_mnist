@@ -30,7 +30,7 @@ class ContextUnet(nn.Module):
         self.output = UnetOutputBlock(hidden_channels, in_channels)
 
     def forward(
-        self, x: torch.Tensor, c: torch.LongTensor, t: torch.LongTensor,
+        self, x: torch.Tensor, c: torch.LongTensor, t: torch.Tensor,
         mask: torch.LongTensor
     ) -> torch.Tensor:
         assert len(x.shape) == 4, f'x.shape = {x.shape}'
