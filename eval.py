@@ -18,7 +18,9 @@ def parse_args():
     )
     parser.add_argument(
         '--checkpoint', type=str,
-        default=os.path.join('logs', 'experiment', 'version_0', 'checkpoints', 'epoch-0000-step-469.ckpt'),
+        default=os.path.join(
+            'logs', 'colab_training', 'version_1', 'checkpoints', 'epoch-0024-step-2950.ckpt'
+        ),
         help='Abs path to fine-tuning checkpoint',
     )
     parser.add_argument(
